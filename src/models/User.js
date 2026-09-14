@@ -71,10 +71,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Indexation pour l'optimisation des recherches rapides
-userSchema.index({ email: 1 });
-userSchema.index({ telephone: 1 });
-
 /**
  * Middleware pré-enregistrement pour le hachage sécurisé du mot de passe.
  */

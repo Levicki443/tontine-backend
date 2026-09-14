@@ -78,7 +78,6 @@ const paymentSchema = new mongoose.Schema(
 );
 
 // Indexation pour l'historique rapide et l'intégrité
-paymentSchema.index({ referenceTransaction: 1 });
 paymentSchema.index({ payeur: 1, createdAt: -1 });
 paymentSchema.index({ tontine: 1, createdAt: -1 });
 
