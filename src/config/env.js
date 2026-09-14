@@ -28,7 +28,12 @@ const env = {
   RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '150', 10),
 
   // Configuration CORS multi-origines
-  ALLOW_ORIGINS: (process.env.ALLOW_ORIGINS || process.env.ALLOWED_ORIGINS || process.env.CLIENT_ORIGIN || '*')
+  ALLOW_ORIGINS: (
+    process.env.ALLOW_ORIGINS ||
+    process.env.ALLOWED_ORIGINS ||
+    process.env.CLIENT_ORIGIN ||
+    'http://localhost:5173,http://127.0.0.1:5173,https://tontine-orcin.vercel.app,*.vercel.app'
+  )
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),

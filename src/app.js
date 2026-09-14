@@ -27,8 +27,27 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // Autoriser si wildcard (*) ou si l'origine est présente dans la liste blanche
-    if (env.ALLOW_ORIGINS.includes('*') || env.ALLOW_ORIGINS.includes(origin)) {
+    // Autoriser si wildcard globale (*)
+    if (env.ALLOW_ORIGINS.includes('*')) {
+      return callback(null, true);
+    }
+
+    // Vérifier correspondance exacte ou motif de domaine (*.vercel.app)
+    const isAllowed = env.ALLOW_ORIGINS.some((allowed) => {
+      if (allowed === origin) return true;
+      if (allowed.startsWith('*.') || allowed.startsWith('https://*.')) {
+        const cleanPattern = allowed.replace(/^https?:\/\/\*\./, '').replace(/^\*\./, '');
+        try {
+          const originHost = new URL(origin).hostname;
+          return originHost === cleanPattern || originHost.endsWith(`.${cleanPattern}`);
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    });
+
+    if (isAllowed) {
       return callback(null, true);
     }
 
