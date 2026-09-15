@@ -1,6 +1,8 @@
 /**
- * Point d'entrée principal de l'application Backend Express.
- * Configure la chaîne de middlewares de sécurité, les routes de base et la gestion des erreurs.
+ * POINT D'ENTRÉE PRINCIPAL API BACKEND (app.js)
+ * 
+ * Configure la chaîne de middlewares de sécurité bancaire,
+ * les routes modulaires et la gestion globale des erreurs.
  */
 
 const express = require('express');
@@ -22,17 +24,10 @@ app.use(helmet());
 // 2. Gestion dynamique et sécurisée des accès multi-origines (CORS)
 const corsOptions = {
   origin: (origin, callback) => {
-    // Autoriser les requêtes sans origine (ex: Postman, curl, requêtes serveur)
-    if (!origin) {
+    if (!origin || env.ALLOW_ORIGINS.includes('*')) {
       return callback(null, true);
     }
 
-    // Autoriser si wildcard globale (*)
-    if (env.ALLOW_ORIGINS.includes('*')) {
-      return callback(null, true);
-    }
-
-    // Vérifier correspondance exacte ou motif de domaine (*.vercel.app)
     const isAllowed = env.ALLOW_ORIGINS.some((allowed) => {
       if (allowed === origin) return true;
       if (allowed.startsWith('*.') || allowed.startsWith('https://*.')) {
@@ -47,10 +42,7 @@ const corsOptions = {
       return false;
     });
 
-    if (isAllowed) {
-      return callback(null, true);
-    }
-
+    if (isAllowed) return callback(null, true);
     return callback(new AppError(`Origine non autorisée par la politique CORS : ${origin}`, 403));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -61,33 +53,33 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// 3. Journalisation des requêtes HTTP en développement
+// 3. Journalisation en développement
 if (env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// 4. Limitation du débit global pour contrer le déni de service (DDoS)
+// 4. Limitation du débit global (Rate Limiting)
 const limiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
   max: env.RATE_LIMIT_MAX_REQUESTS,
   message: {
     success: false,
     status: 'fail',
-    message: 'Trop de requêtes effectuées depuis cette adresse IP. Veuillez patienter 15 minutes.'
+    message: 'Trop de requêtes effectuées depuis cette adresse IP. Veuillez patienter.'
   },
   standardHeaders: true,
   legacyHeaders: false
 });
 app.use('/api', limiter);
 
-// 5. Analyse du corps des requêtes avec restriction de taille (Anti-Payload Flooding)
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// 5. Analyse du corps des requêtes avec limite de taille
+app.use(express.json({ limit: '10mb' })); // Supporte les reçus et captures en base64
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 6. Assainissement des données contre les injections NoSQL
+// 6. Assainissement NoSQL
 app.use(mongoSanitize());
 
-// 7. Route de vérification de l'état de santé de l'API (Health Check)
+// 7. Health Check
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -101,21 +93,27 @@ app.get('/api/health', (req, res) => {
 const authRoutes = require('./routes/authRoutes');
 const tontineRoutes = require('./routes/tontineRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const disputeRoutes = require('./routes/disputeRoutes');
+const auditRoutes = require('./routes/auditRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tontines', tontineRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/disputes', disputeRoutes);
+app.use('/api/audit', auditRoutes);
 
-// 9. Capture des routes non trouvées (404)
+// 9. Capture 404
 app.all('*', (req, res, next) => {
   next(new AppError(`La ressource demandée (${req.originalUrl}) est introuvable sur ce serveur.`, 404));
 });
 
-// 9. Middleware global de capture et traitement des erreurs
+// 10. Gestionnaire d'erreurs global
 app.use(errorHandler);
 
 /**
- * Démarre le serveur HTTP et initialise la connexion aux services externes.
+ * Démarrage du serveur et arrêt gracieux
  */
 const startServer = async () => {
   await connectDB();
@@ -124,7 +122,6 @@ const startServer = async () => {
     console.log(`🚀 Serveur API Tontine Collaborative actif sur le port ${env.PORT} [Mode : ${env.NODE_ENV}]`);
   });
 
-  // Gestion des signaux de terminaison propre (Graceful Shutdown)
   const gracefulShutdown = async (signal) => {
     console.log(`\n🛑 Signal ${signal} reçu : fermeture progressive du serveur...`);
     server.close(async () => {
@@ -138,7 +135,6 @@ const startServer = async () => {
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 };
 
-// Démarrage automatique si exécuté directement
 if (require.main === module) {
   startServer();
 }

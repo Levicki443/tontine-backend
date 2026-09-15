@@ -1,7 +1,8 @@
 /**
- * Modèle Tontine Mongoose.
- * Gère les cercles d'épargne collective, les règles de cotisation,
- * les membres participants et l'ordre des bénéficiaires.
+ * MODÈLE TONTINE MONGOOSE (Tontine.js)
+ * 
+ * Gère les cercles d'épargne collective, les règles de tirage, les rôles internes
+ * (Admin, Trésorier, Membre), le calendrier des tours et le fonds commun.
  */
 
 const mongoose = require('mongoose');
@@ -11,7 +12,12 @@ const membreSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'L\'identifiant de l\'utilisateur membre est requis.']
+      required: [true, 'L\'identifiant du membre est requis.']
+    },
+    roleDansGroupe: {
+      type: String,
+      enum: ['administrateur', 'tresorier', 'membre'],
+      default: 'membre'
     },
     dateAdhesion: {
       type: Date,
@@ -22,6 +28,37 @@ const membreSchema = new mongoose.Schema(
       required: [true, 'L\'ordre de passage dans la tontine est obligatoire.']
     },
     aEteBeneficiaire: {
+      type: Boolean,
+      default: false
+    },
+    dateGain: {
+      type: Date,
+      default: null
+    }
+  },
+  { _id: false }
+);
+
+const echeanceSchema = new mongoose.Schema(
+  {
+    numeroTour: {
+      type: Number,
+      required: true
+    },
+    dateEcheance: {
+      type: Date,
+      required: true
+    },
+    beneficiairePrevu: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    montantCagnotte: {
+      type: Number,
+      required: true
+    },
+    estTermine: {
       type: Boolean,
       default: false
     }
@@ -70,12 +107,46 @@ const tontineSchema = new mongoose.Schema(
       min: [2, 'Une tontine doit comporter au minimum 2 participants.'],
       max: [100, 'Une tontine ne peut pas excéder 100 participants.']
     },
+    methodeTirage: {
+      type: String,
+      enum: {
+        values: ['aleatoire', 'anciennete', 'besoin'],
+        message: 'Méthode de tirage invalide (choix : aleatoire, anciennete, besoin).'
+      },
+      default: 'aleatoire'
+    },
+    penaliteRetardActif: {
+      type: Boolean,
+      default: false
+    },
+    montantPenaliteParJour: {
+      type: Number,
+      default: 500
+    },
+    delaiGraceJours: {
+      type: Number,
+      default: 2
+    },
     createur: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Le créateur de la tontine est obligatoire.']
     },
+    tresorier: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
     membres: [membreSchema],
+    calendrierTours: [echeanceSchema],
+    tourActuel: {
+      type: Number,
+      default: 1
+    },
+    fondsCommunSolde: {
+      type: Number,
+      default: 0
+    },
     statut: {
       type: String,
       enum: {
@@ -96,14 +167,15 @@ const tontineSchema = new mongoose.Schema(
   }
 );
 
-// Calcul virtuel de la cagnotte totale estimée par tour
+// Cagnotte brute estimée par tour
 tontineSchema.virtual('cagnotteEstimee').get(function () {
   return this.montantCotisation * this.nombreParticipantsMax;
 });
 
-// Indexation pour les filtres et listes de tontines
+// Indexation
 tontineSchema.index({ statut: 1, createdAt: -1 });
 tontineSchema.index({ createur: 1 });
+tontineSchema.index({ tresorier: 1 });
 tontineSchema.index({ 'membres.user': 1 });
 
 const Tontine = mongoose.model('Tontine', tontineSchema);

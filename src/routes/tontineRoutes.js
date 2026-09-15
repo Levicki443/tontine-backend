@@ -1,6 +1,5 @@
 /**
- * Routes de l'API pour la gestion des Tontines.
- * Point d'accès : /api/tontines
+ * ROUTES TONTINES (tontineRoutes.js)
  */
 
 const express = require('express');
@@ -9,24 +8,22 @@ const {
   getAllTontines,
   getMyTontines,
   getTontineById,
-  joinTontine
+  joinTontine,
+  assignTreasurer,
+  getFinancialSummary
 } = require('../controllers/tontineController');
 const { protect } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// Toutes les routes tontines sont protégées par authentification JWT
 router.use(protect);
 
-router.route('/')
-  .post(createTontine)
-  .get(getAllTontines);
-
+router.post('/', createTontine);
+router.get('/', getAllTontines);
 router.get('/mes-tontines', getMyTontines);
-
-router.route('/:id')
-  .get(getTontineById);
-
+router.get('/:id', getTontineById);
+router.get('/:id/synthese-financiere', getFinancialSummary);
 router.post('/:id/rejoindre', joinTontine);
+router.patch('/:id/tresorier', assignTreasurer);
 
 module.exports = router;

@@ -1,6 +1,8 @@
 /**
- * Modèle Utilisateur Mongoose.
- * Gère les données de profil, la sécurité des mots de passe et le statut du compte.
+ * Modèle Utilisateur Mongoose (User.js)
+ * 
+ * Gère les profils des membres, la sécurité des mots de passe (bcrypt),
+ * l'authentification à deux facteurs (2FA) et les rôles système.
  */
 
 const mongoose = require('mongoose');
@@ -45,8 +47,8 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['membre', 'administrateur'],
-        message: 'Le rôle doit être soit membre, soit administrateur.'
+        values: ['membre', 'administrateur', 'tresorier'],
+        message: 'Le rôle doit être soit membre, soit trésorier, soit administrateur.'
       },
       default: 'membre'
     },
@@ -57,6 +59,26 @@ const userSchema = new mongoose.Schema(
     derniereConnexion: {
       type: Date,
       default: null
+    },
+    // Authentification à Deux Facteurs (2FA)
+    deuxFacteursActif: {
+      type: Boolean,
+      default: false
+    },
+    deuxFacteursSecret: {
+      type: String,
+      select: false,
+      default: null
+    },
+    deuxFacteursOtp: {
+      type: String,
+      select: false,
+      default: null
+    },
+    deuxFacteursOtpExpire: {
+      type: Date,
+      select: false,
+      default: null
     }
   },
   {
@@ -64,6 +86,9 @@ const userSchema = new mongoose.Schema(
     toJSON: {
       transform(doc, ret) {
         delete ret.password;
+        delete ret.deuxFacteursSecret;
+        delete ret.deuxFacteursOtp;
+        delete ret.deuxFacteursOtpExpire;
         delete ret.__v;
         return ret;
       }
